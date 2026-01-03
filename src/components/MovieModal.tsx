@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, BookmarkSimple } from '@phosphor-icons/react'
+import { CheckCircle, BookmarkSimple, UsersThree } from '@phosphor-icons/react'
 import { tmdbApi } from '@/lib/tmdb'
 import type { GraphNode } from '@/lib/types'
 
@@ -16,6 +16,8 @@ interface MovieModalProps {
   movie: GraphNode | null
   onMarkWatched: (movieId: number) => void
   onAddToWatchlist: (movieId: number) => void
+  onExpandMovie: (movieId: number) => void
+  isExpanded: boolean
 }
 
 export function MovieModal({
@@ -24,6 +26,8 @@ export function MovieModal({
   movie,
   onMarkWatched,
   onAddToWatchlist,
+  onExpandMovie,
+  isExpanded,
 }: MovieModalProps) {
   if (!movie) return null
 
@@ -89,48 +93,70 @@ export function MovieModal({
                     Watchlist
                   </Badge>
                 )}
+                {isExpanded && (
+                  <Badge variant="secondary" className="gap-1">
+                    <UsersThree size={14} weight="fill" />
+                    Expanded
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="flex gap-3">
-            {!movie.watched && (
+          <div className="flex flex-col gap-2">
+            {!isExpanded && (
               <Button
                 onClick={() => {
-                  onMarkWatched(movie.tmdbId)
+                  onExpandMovie(movie.tmdbId)
                   onClose()
                 }}
-                className="flex-1 gap-2"
-                variant="outline"
+                className="w-full gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
               >
-                <CheckCircle size={18} />
-                Mark as Watched
+                <UsersThree size={18} />
+                Show Actors & Director
               </Button>
             )}
-            {!movie.watchlist && !movie.watched && (
-              <Button
-                onClick={() => {
-                  onAddToWatchlist(movie.tmdbId)
-                  onClose()
-                }}
-                className="flex-1 gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                <BookmarkSimple size={18} />
-                Add to Watchlist
-              </Button>
-            )}
-            {movie.watched && (
-              <Button
-                onClick={() => {
-                  onAddToWatchlist(movie.tmdbId)
-                  onClose()
-                }}
-                className="flex-1"
-                variant="outline"
-              >
-                Remove from Watched
-              </Button>
-            )}
+            
+            <div className="flex gap-3">
+              {!movie.watched && (
+                <Button
+                  onClick={() => {
+                    onMarkWatched(movie.tmdbId)
+                    onClose()
+                  }}
+                  className="flex-1 gap-2"
+                  variant="outline"
+                >
+                  <CheckCircle size={18} />
+                  Mark as Watched
+                </Button>
+              )}
+              {!movie.watchlist && !movie.watched && (
+                <Button
+                  onClick={() => {
+                    onAddToWatchlist(movie.tmdbId)
+                    onClose()
+                  }}
+                  className="flex-1 gap-2"
+                  variant="outline"
+                >
+                  <BookmarkSimple size={18} />
+                  Add to Watchlist
+                </Button>
+              )}
+              {movie.watched && (
+                <Button
+                  onClick={() => {
+                    onMarkWatched(movie.tmdbId)
+                    onClose()
+                  }}
+                  className="flex-1"
+                  variant="outline"
+                >
+                  Remove from Watched
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>

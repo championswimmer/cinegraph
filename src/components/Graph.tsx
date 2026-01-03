@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
 import { FilmStrip, User, VideoCamera, CheckCircle, BookmarkSimple } from '@phosphor-icons/react'
 import { createForceSimulation, getNodeColor } from '@/lib/graph-utils'
+import { tmdbApi } from '@/lib/tmdb'
 import type { D3Node, D3Link } from '@/lib/graph-utils'
 import type { GraphNode, GraphLink } from '@/lib/types'
 
@@ -11,9 +12,10 @@ interface GraphProps {
   onNodeClick: (node: GraphNode, event?: React.MouseEvent) => void
   hiddenNodes: Set<string>
   collapsedNodes: Set<string>
+  showThumbnails: boolean
 }
 
-export function Graph({ nodes, links, onNodeClick, hiddenNodes, collapsedNodes }: GraphProps) {
+export function Graph({ nodes, links, onNodeClick, hiddenNodes, collapsedNodes, showThumbnails }: GraphProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
 
@@ -98,12 +100,75 @@ export function Graph({ nodes, links, onNodeClick, hiddenNodes, collapsedNodes }
       .attr('stroke', 'oklch(0.98 0 0)')
       .attr('stroke-width', 2)
       .style('filter', 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))')
+      .style('display', showThumbnails ? 'none' : 'block')
+
+    if (showThumbnails) {
+      nodeGroup.append('defs')
+        .append('clipPath')
+        .attr('id', (d) => `clip-${d.id}`)
+        .append('circle')
+        .attr('r', 30)
+
+      nodeGroup.append('image')
+        .attr('xlink:href', (d) => {
+          const imageUrl = d.imageUrl ? tmdbApi.getImageUrl(d.imageUrl) : null
+          return imageUrl || ''
+        })
+        .attr('width', 60)
+        .attr('height', 60)
+        .attr('x', -30)
+        .attr('y', -30)
+        .attr('clip-path', (d) => `url(#clip-${d.id})`)
+        .style('filter', 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))')
+        .on('error', function(event, d) {
+          d3.select(this.parentNode)
+            .append('circle')
+            .attr('r', 30)
+            .attr('fill', getNodeColor(d.type, d.watched, d.watchlist))
+            .attr('stroke', 'oklch(0.98 0 0)')
+            .attr('stroke-width', 2)
+            .style('filter', 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))')
+          
+          d3.select(this.parentNode)
+            .append('foreignObject')
+            .attr('width', 24)
+            .attr('height', 24)
+            .attr('x', -12)
+            .attr('y', -12)
+            .append('xhtml:div')
+            .style('width', '24px')
+            .style('height', '24px')
+            .style('display', 'flex')
+            .style('align-items', 'center')
+            .style('justify-content', 'center')
+            .style('color', 'oklch(0.15 0.01 260)')
+            .html(() => {
+              const iconContainer = document.createElement('div')
+              iconContainer.id = `icon-fallback-${d.id}`
+              const root = document.createElement('div')
+              root.innerHTML = `<svg width="24" height="24" fill="currentColor" viewBox="0 0 256 256">
+                ${getIconPath(d.type)}
+              </svg>`
+              iconContainer.appendChild(root.firstChild!)
+              return iconContainer.outerHTML
+            })
+
+          d3.select(this).remove()
+        })
+
+      nodeGroup.append('circle')
+        .attr('r', 30)
+        .attr('fill', 'transparent')
+        .attr('stroke', 'oklch(0.98 0 0)')
+        .attr('stroke-width', 2)
+    }
 
     nodeGroup.append('foreignObject')
       .attr('width', 24)
       .attr('height', 24)
       .attr('x', -12)
       .attr('y', -12)
+      .style('display', showThumbnails ? 'none' : 'block')
       .append('xhtml:div')
       .style('width', '24px')
       .style('height', '24px')
@@ -124,6 +189,8 @@ export function Graph({ nodes, links, onNodeClick, hiddenNodes, collapsedNodes }
       })
 
     nodeGroup.each(function (d) {
+      if (showThumbnails) return
+      
       const iconMap = {
         movie: FilmStrip,
         actor: User,
@@ -246,7 +313,7 @@ export function Graph({ nodes, links, onNodeClick, hiddenNodes, collapsedNodes }
     return () => {
       simulation.stop()
     }
-  }, [nodes, links, dimensions, onNodeClick, hiddenNodes, collapsedNodes])
+  }, [nodes, links, dimensions, onNodeClick, hiddenNodes, collapsedNodes, showThumbnails])
 
   return (
     <svg

@@ -4,9 +4,13 @@ import { SearchBar } from '@/components/SearchBar'
 import { Graph } from '@/components/Graph'
 import { FilterModal } from '@/components/FilterModal'
 import { MovieModal } from '@/components/MovieModal'
+import { WatchlistSidebar } from '@/components/WatchlistSidebar'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { tmdbApi } from '@/lib/tmdb'
+import { BookmarkSimple, Image } from '@phosphor-icons/react'
 import type {
   SearchResult,
   GraphNode,
@@ -21,9 +25,11 @@ function App() {
   const [watchlist, setWatchlist] = useKV<WatchlistItem[]>('watchlist', [])
   const [watchedMovies, setWatchedMovies] = useKV<number[]>('watched', [])
   const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set())
+  const [showThumbnails, setShowThumbnails] = useKV<boolean>('show-thumbnails', false)
 
   const [filterModalOpen, setFilterModalOpen] = useState(false)
   const [movieModalOpen, setMovieModalOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedPerson, setSelectedPerson] = useState<{
     id: number
     name: string
@@ -33,6 +39,7 @@ function App() {
   const [personMovieCount, setPersonMovieCount] = useState<
     Record<string, number>
   >({})
+  const [expandedMovies, setExpandedMovies] = useState<Set<number>>(new Set())
 
   const addNode = (node: GraphNode) => {
     setNodes((current) => {
@@ -339,6 +346,111 @@ function App() {
     toast.success('Updated watchlist')
   }
 
+  const handleExpandMovie = async (movieId: number) => {
+    if (expandedMovies.has(movieId)) {
+      toast.info('Movie already expanded')
+      return
+    }
+
+    try {
+      const [movie, credits] = await Promise.all([
+        tmdbApi.getMovie(movieId),
+        tmdbApi.getMovieCredits(movieId),
+      ])
+
+      const movieNodeId = `movie-${movieId}`
+
+      const director = credits.crew.find((c) => c.job === 'Director')
+      if (director) {
+        const directorNode: GraphNode = {
+          id: `director-${director.id}`,
+          tmdbId: director.id,
+          type: 'director',
+          name: director.name,
+          imageUrl: director.profile_path,
+        }
+        addNode(directorNode)
+        addLink({ source: movieNodeId, target: directorNode.id })
+      }
+
+      const topActors = credits.cast.slice(0, 5)
+      topActors.forEach((actor) => {
+        const actorNode: GraphNode = {
+          id: `actor-${actor.id}`,
+          tmdbId: actor.id,
+          type: 'actor',
+          name: actor.name,
+          imageUrl: actor.profile_path,
+          metadata: {
+            character: actor.character,
+          },
+        }
+        addNode(actorNode)
+        addLink({ source: movieNodeId, target: actorNode.id })
+      })
+
+      setExpandedMovies((prev) => new Set([...prev, movieId]))
+
+      setNodes((current) =>
+        current.map((n) =>
+          n.tmdbId === movieId && n.type === 'movie' ? { ...n, expanded: true } : n
+        )
+      )
+
+      toast.success(`Expanded ${movie.title}`)
+    } catch (error) {
+      toast.error('Failed to expand movie')
+      console.error(error)
+    }
+  }
+
+  const handleRemoveFromWatchlist = (movieId: number) => {
+    setWatchlist((current) => (current || []).filter((item) => item.tmdbId !== movieId))
+
+    setNodes((current) =>
+      current.map((node) =>
+        node.tmdbId === movieId && node.type === 'movie'
+          ? { ...node, watchlist: false }
+          : node
+      )
+    )
+
+    toast.success('Removed from watchlist')
+  }
+
+  const handleSidebarMovieClick = async (movieId: number) => {
+    const existingNode = nodes.find(
+      (n) => n.tmdbId === movieId && n.type === 'movie'
+    )
+
+    if (existingNode) {
+      setSelectedMovie(existingNode)
+      setMovieModalOpen(true)
+    } else {
+      try {
+        const movie = await tmdbApi.getMovie(movieId)
+        const movieNode: GraphNode = {
+          id: `movie-${movie.id}`,
+          tmdbId: movie.id,
+          type: 'movie',
+          name: movie.title,
+          imageUrl: movie.poster_path,
+          metadata: {
+            releaseDate: movie.release_date,
+            rating: movie.vote_average,
+          },
+          watched: (watchedMovies || []).includes(movie.id),
+          watchlist: (watchlist || []).some((item) => item.tmdbId === movie.id),
+        }
+        setSelectedMovie(movieNode)
+        setMovieModalOpen(true)
+      } catch (error) {
+        toast.error('Failed to load movie')
+        console.error(error)
+      }
+    }
+  }
+
   const handleLoadMore = async (personId: string) => {
     setLoadingMore(true)
     const node = nodes.find((n) => n.id === personId)
@@ -397,15 +509,31 @@ function App() {
             <h1 className="text-3xl font-bold tracking-tight">CineGraph</h1>
             <div className="flex items-center gap-4">
               {nodes.length > 0 && (
-                <div className="text-xs text-muted-foreground">
-                  Ctrl+Click to expand/collapse
-                </div>
+                <>
+                  <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg">
+                    <Image size={18} className="text-muted-foreground" />
+                    <Label htmlFor="thumbnail-toggle" className="text-sm cursor-pointer">
+                      Thumbnails
+                    </Label>
+                    <Switch
+                      id="thumbnail-toggle"
+                      checked={showThumbnails || false}
+                      onCheckedChange={setShowThumbnails}
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Ctrl+Click to expand/collapse
+                  </div>
+                </>
               )}
-              {watchlistCount > 0 && (
-                <div className="text-sm text-muted-foreground">
-                  Watchlist: {watchlistCount} {watchlistCount === 1 ? 'movie' : 'movies'}
-                </div>
-              )}
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <BookmarkSimple size={18} />
+                My Movies ({watchlistCount})
+              </Button>
             </div>
           </div>
           <SearchBar onSelect={handleSearchSelect} />
@@ -432,6 +560,7 @@ function App() {
             onNodeClick={handleNodeClick}
             hiddenNodes={getHiddenNodes()}
             collapsedNodes={collapsedNodes}
+            showThumbnails={showThumbnails || false}
           />
         )}
       </main>
@@ -468,6 +597,18 @@ function App() {
         movie={selectedMovie}
         onMarkWatched={handleMarkWatched}
         onAddToWatchlist={handleAddToWatchlist}
+        onExpandMovie={handleExpandMovie}
+        isExpanded={selectedMovie ? expandedMovies.has(selectedMovie.tmdbId) : false}
+      />
+
+      <WatchlistSidebar
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        watchlist={watchlist || []}
+        watchedMovies={watchedMovies || []}
+        onRemoveFromWatchlist={handleRemoveFromWatchlist}
+        onMarkWatched={handleMarkWatched}
+        onMovieClick={handleSidebarMovieClick}
       />
     </div>
   )
