@@ -8,11 +8,12 @@ import type { GraphNode, GraphLink } from '@/lib/types'
 interface GraphProps {
   nodes: GraphNode[]
   links: GraphLink[]
-  onNodeClick: (node: GraphNode) => void
+  onNodeClick: (node: GraphNode, event?: React.MouseEvent) => void
   hiddenNodes: Set<string>
+  collapsedNodes: Set<string>
 }
 
-export function Graph({ nodes, links, onNodeClick, hiddenNodes }: GraphProps) {
+export function Graph({ nodes, links, onNodeClick, hiddenNodes, collapsedNodes }: GraphProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
 
@@ -146,11 +147,12 @@ export function Graph({ nodes, links, onNodeClick, hiddenNodes }: GraphProps) {
       .attr('fill', (d) => {
         if (d.watched) return 'oklch(0.70 0.15 160)'
         if (d.watchlist) return 'oklch(0.75 0.15 210)'
+        if (collapsedNodes.has(d.id)) return 'oklch(0.80 0.15 85)'
         if (d.expanded) return 'oklch(0.75 0.15 210)'
         return 'transparent'
       })
       .attr('stroke', 'oklch(0.98 0 0)')
-      .attr('stroke-width', (d) => (d.watched || d.watchlist || d.expanded ? 1 : 0))
+      .attr('stroke-width', (d) => (d.watched || d.watchlist || d.expanded || collapsedNodes.has(d.id) ? 1 : 0))
       .style('filter', 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))')
 
     nodeGroup.append('foreignObject')
@@ -169,6 +171,7 @@ export function Graph({ nodes, links, onNodeClick, hiddenNodes }: GraphProps) {
       .html((d) => {
         if (d.watched) return '<div id="badge-check-' + d.id + '"></div>'
         if (d.watchlist) return '<div id="badge-bookmark-' + d.id + '"></div>'
+        if (collapsedNodes.has(d.id)) return '<div id="badge-collapsed-' + d.id + '"></div>'
         return ''
       })
 
@@ -185,6 +188,13 @@ export function Graph({ nodes, links, onNodeClick, hiddenNodes }: GraphProps) {
         if (container) {
           container.innerHTML = `<svg width="12" height="12" fill="currentColor" viewBox="0 0 256 256">
             <path d="M184,32H72A16,16,0,0,0,56,48V224a8,8,0,0,0,12.24,6.78L128,193.43l59.77,37.35A8,8,0,0,0,200,224V48A16,16,0,0,0,184,32Zm0,177.57-51.77-32.35a8,8,0,0,0-8.48,0L72,209.57V48H184Z"></path>
+          </svg>`
+        }
+      } else if (collapsedNodes.has(d.id)) {
+        const container = this.querySelector(`#badge-collapsed-${d.id}`)
+        if (container) {
+          container.innerHTML = `<svg width="12" height="12" fill="currentColor" viewBox="0 0 256 256">
+            <path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128Z"></path>
           </svg>`
         }
       }
@@ -211,7 +221,7 @@ export function Graph({ nodes, links, onNodeClick, hiddenNodes }: GraphProps) {
 
     nodeGroup.on('click', (event, d) => {
       event.stopPropagation()
-      onNodeClick(d)
+      onNodeClick(d, event)
     })
 
     nodeGroup.on('mouseenter', function () {
@@ -236,7 +246,7 @@ export function Graph({ nodes, links, onNodeClick, hiddenNodes }: GraphProps) {
     return () => {
       simulation.stop()
     }
-  }, [nodes, links, dimensions, onNodeClick, hiddenNodes])
+  }, [nodes, links, dimensions, onNodeClick, hiddenNodes, collapsedNodes])
 
   return (
     <svg

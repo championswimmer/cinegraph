@@ -20,7 +20,7 @@ function App() {
   const [links, setLinks] = useState<GraphLink[]>([])
   const [watchlist, setWatchlist] = useKV<WatchlistItem[]>('watchlist', [])
   const [watchedMovies, setWatchedMovies] = useKV<number[]>('watched', [])
-  const [hiddenNodes, setHiddenNodes] = useState<Set<string>>(new Set())
+  const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set())
 
   const [filterModalOpen, setFilterModalOpen] = useState(false)
   const [movieModalOpen, setMovieModalOpen] = useState(false)
@@ -59,7 +59,7 @@ function App() {
   const handleSearchSelect = async (result: SearchResult) => {
     setNodes([])
     setLinks([])
-    setHiddenNodes(new Set())
+    setCollapsedNodes(new Set())
 
     if (result.media_type === 'movie') {
       await handleMovieSearch(result.id)
@@ -181,7 +181,53 @@ function App() {
     }
   }
 
-  const handleNodeClick = (node: GraphNode) => {
+  const getDescendants = (nodeId: string): Set<string> => {
+    const descendants = new Set<string>()
+    const queue = [nodeId]
+    const visited = new Set<string>()
+
+    while (queue.length > 0) {
+      const current = queue.shift()!
+      if (visited.has(current)) continue
+      visited.add(current)
+
+      const childLinks = links.filter((l) => l.source === current)
+      childLinks.forEach((link) => {
+        descendants.add(link.target)
+        queue.push(link.target)
+      })
+    }
+
+    return descendants
+  }
+
+  const getHiddenNodes = (): Set<string> => {
+    const hidden = new Set<string>()
+
+    collapsedNodes.forEach((collapsedId) => {
+      const descendants = getDescendants(collapsedId)
+      descendants.forEach((desc) => hidden.add(desc))
+    })
+
+    return hidden
+  }
+
+  const handleNodeClick = (node: GraphNode, event?: React.MouseEvent) => {
+    const isCtrlOrMetaKey = event?.ctrlKey || event?.metaKey
+
+    if (isCtrlOrMetaKey) {
+      setCollapsedNodes((current) => {
+        const newSet = new Set(current)
+        if (newSet.has(node.id)) {
+          newSet.delete(node.id)
+        } else {
+          newSet.add(node.id)
+        }
+        return newSet
+      })
+      return
+    }
+
     if (node.type === 'movie') {
       setSelectedMovie(node)
       setMovieModalOpen(true)
@@ -349,11 +395,18 @@ function App() {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold tracking-tight">CineGraph</h1>
-            {watchlistCount > 0 && (
-              <div className="text-sm text-muted-foreground">
-                Watchlist: {watchlistCount} {watchlistCount === 1 ? 'movie' : 'movies'}
-              </div>
-            )}
+            <div className="flex items-center gap-4">
+              {nodes.length > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Ctrl+Click to expand/collapse
+                </div>
+              )}
+              {watchlistCount > 0 && (
+                <div className="text-sm text-muted-foreground">
+                  Watchlist: {watchlistCount} {watchlistCount === 1 ? 'movie' : 'movies'}
+                </div>
+              )}
+            </div>
           </div>
           <SearchBar onSelect={handleSearchSelect} />
         </div>
@@ -377,7 +430,8 @@ function App() {
             nodes={nodes}
             links={links}
             onNodeClick={handleNodeClick}
-            hiddenNodes={hiddenNodes}
+            hiddenNodes={getHiddenNodes()}
+            collapsedNodes={collapsedNodes}
           />
         )}
       </main>

@@ -34,10 +34,10 @@ This is a sophisticated application involving TMDB API integration, complex grap
 - **Success criteria**: Proper sorting, smooth node addition when loading more, no layout disruption
 
 ### 4. Node Expansion with Filters
-- **Functionality**: Clicking actor/director nodes opens a modal with filter options (genre, era, rating vs popularity) before fetching related movies
+- **Functionality**: Clicking actor/director nodes opens a modal with filter options (genre, granular time periods, rating vs popularity) before fetching related movies
 - **Purpose**: Give users control over what types of movies they discover from each talent
 - **Trigger**: User clicks on an actor or director node in the graph
-- **Progression**: Node clicked → Modal opens with filter UI → User selects genre/era/sort preference → Fetch 5 filtered movies from TMDB → Add movies to graph connected to clicked node → Node marked as "expanded"
+- **Progression**: Node clicked → Modal opens with filter UI → User selects genre/era/sort preference (Before 1960, 1960-1980, 1980-2000, 2000-2020, 2020+) → Fetch 5 filtered movies from TMDB → Add movies to graph connected to clicked node → Node marked as "expanded"
 - **Success criteria**: Filters produce relevant results, graph layout adjusts smoothly, no duplicate movies
 
 ### 5. Movie Watchlist Management
@@ -48,11 +48,11 @@ This is a sophisticated application involving TMDB API integration, complex grap
 - **Success criteria**: Watchlist persists across sessions, visual indicators are clear, status can be toggled
 
 ### 6. Graph Interaction & Navigation
-- **Functionality**: Nodes can be dragged, graph can be panned/zoomed, nodes can be toggled to collapse/expand their branches
-- **Purpose**: Provide fluid exploration of complex relationship networks
-- **Trigger**: User interacts with graph canvas or nodes
-- **Progression**: User drags node → Force simulation updates → Node position changes | User toggles node → Child nodes hide/show with animation
-- **Success criteria**: Smooth 60fps animations, intuitive zoom/pan controls, toggle state persists during session
+- **Functionality**: Nodes can be dragged, graph can be panned/zoomed, any node can be collapsed/expanded to hide/show all descendant branches
+- **Purpose**: Provide fluid exploration of complex relationship networks and manage visual complexity
+- **Trigger**: User interacts with graph canvas or uses Ctrl+Click on nodes
+- **Progression**: User drags node → Force simulation updates → Node position changes | User Ctrl+Clicks node → All descendant nodes (and their branches) hide/show with smooth transition → Collapsed indicator appears on parent node
+- **Success criteria**: Smooth 60fps animations, intuitive zoom/pan controls, collapse/expand works for any node type, visual indicator shows collapsed state
 
 ## Edge Case Handling
 
@@ -139,6 +139,7 @@ Animations should feel cinematic and purposeful - smooth transitions that guide 
   - Watchlist: BookmarkSimple
   - Watched: CheckCircle
   - Expand: Plus
+  - Collapsed: Minus (horizontal line)
   - Close: X
   - Load More: ArrowDown
   - Filter: Funnel

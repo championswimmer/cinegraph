@@ -22,6 +22,8 @@ interface FilterModalProps {
   personName: string
 }
 
+type YearRange = 'all' | 'before1960' | '1960-1980' | '1980-2000' | '2000-2020' | '2020+'
+
 export function FilterModal({
   open,
   onClose,
@@ -29,7 +31,7 @@ export function FilterModal({
   personName,
 }: FilterModalProps) {
   const [selectedGenres, setSelectedGenres] = useState<number[]>([])
-  const [yearRange, setYearRange] = useState<'all' | 'old' | 'new'>('all')
+  const [yearRange, setYearRange] = useState<YearRange>('all')
   const [sortBy, setSortBy] = useState<'popularity' | 'rating'>('popularity')
 
   const handleGenreToggle = (genreId: number) => {
@@ -44,10 +46,24 @@ export function FilterModal({
     const currentYear = new Date().getFullYear()
     let range: { min: number; max: number } | null = null
 
-    if (yearRange === 'old') {
-      range = { min: 1900, max: 1999 }
-    } else if (yearRange === 'new') {
-      range = { min: 2000, max: currentYear }
+    switch (yearRange) {
+      case 'before1960':
+        range = { min: 1900, max: 1959 }
+        break
+      case '1960-1980':
+        range = { min: 1960, max: 1980 }
+        break
+      case '1980-2000':
+        range = { min: 1980, max: 2000 }
+        break
+      case '2000-2020':
+        range = { min: 2000, max: 2020 }
+        break
+      case '2020+':
+        range = { min: 2020, max: currentYear }
+        break
+      default:
+        range = null
     }
 
     onApply({
@@ -95,7 +111,7 @@ export function FilterModal({
 
           <div className="space-y-3">
             <Label className="text-base font-semibold">Time Period</Label>
-            <RadioGroup value={yearRange} onValueChange={(val) => setYearRange(val as 'all' | 'old' | 'new')}>
+            <RadioGroup value={yearRange} onValueChange={(val) => setYearRange(val as YearRange)}>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="all" id="all" />
                 <Label htmlFor="all" className="cursor-pointer">
@@ -103,15 +119,33 @@ export function FilterModal({
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="old" id="old" />
-                <Label htmlFor="old" className="cursor-pointer">
-                  Classic (Before 2000)
+                <RadioGroupItem value="before1960" id="before1960" />
+                <Label htmlFor="before1960" className="cursor-pointer">
+                  Before 1960
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="new" id="new" />
-                <Label htmlFor="new" className="cursor-pointer">
-                  Modern (2000+)
+                <RadioGroupItem value="1960-1980" id="1960-1980" />
+                <Label htmlFor="1960-1980" className="cursor-pointer">
+                  1960-1980
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="1980-2000" id="1980-2000" />
+                <Label htmlFor="1980-2000" className="cursor-pointer">
+                  1980-2000
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="2000-2020" id="2000-2020" />
+                <Label htmlFor="2000-2020" className="cursor-pointer">
+                  2000-2020
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="2020+" id="2020+" />
+                <Label htmlFor="2020+" className="cursor-pointer">
+                  2020+
                 </Label>
               </div>
             </RadioGroup>
